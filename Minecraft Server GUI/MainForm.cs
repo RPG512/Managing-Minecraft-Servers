@@ -114,7 +114,7 @@ namespace Minecraft_Server_GUI
 
         private void inputTextBox_KeyDown(object sender, KeyEventArgs e)
         {
-            if (e.KeyCode == Keys.Enter)
+            if (e.KeyCode == Keys.Enter && (inputTextBox.AutoCompleteCustomSource.IndexOf(inputTextBox.Text) < 0 || !inputTextBox.Text.Contains(' ')))
             {
                 try
                 {
@@ -144,9 +144,12 @@ namespace Minecraft_Server_GUI
             var selVerForm = new SelectVersionForm();
             selVerForm.ShowDialog();
 
-            VersionFoldert = selVerForm.VersionFoldert;
+            if (VersionFoldert != "" || VersionFoldert != null)
+            {
+                VersionFoldert = selVerForm.VersionFoldert;
 
-            ReadProperties();
+                ReadProperties();
+            }
         }
 
         private void openSVFAtStartupToolStripMenuItem_CheckedChanged(object sender, EventArgs e)
@@ -206,6 +209,12 @@ namespace Minecraft_Server_GUI
 
         private void comboBox_SelectedIndexChanged(object sender, EventArgs e)
         {
+            if ((sender as ComboBox).Text == "Создать новый мир")
+                if (InputBox.Show("Введите название нового мира", "Новый мир") == DialogResult.OK)
+                {
+                    worldComboBox.Items.Insert(0, InputBox.Value);
+                    worldComboBox.SelectedIndex = 0;
+                }
             ChangeProperties($"{(sender as ComboBox).Tag}={((sender as ComboBox).Tag != "level-name" ? (sender as ComboBox).SelectedIndex : (sender as ComboBox).Text)}");
         }
 
@@ -254,6 +263,7 @@ namespace Minecraft_Server_GUI
                         }
                     }
                 }
+                outputTextBox.Clear();
                 _eulaMsgBox = true;
             }
         }
@@ -268,6 +278,9 @@ namespace Minecraft_Server_GUI
         {
             versionToolStripTextBox.Text = VersionFoldert;
             versionToolStripTextBox.Size = new Size(VersionFoldert.Length * 6, 23);
+
+            outputTextBox.Clear();
+
             try
             {
                 worldComboBox.Items.Clear();
@@ -283,6 +296,7 @@ namespace Minecraft_Server_GUI
                             break;
                         }
                 }
+                worldComboBox.Items.Add("Создать новый мир");
 
                 _lines = File.ReadAllLines(VersionFoldert + @"\server.properties");
 
