@@ -1,9 +1,5 @@
-using System.CodeDom.Compiler;
 using System.Configuration;
-using System.Drawing;
-using System.Windows.Forms;
-using static System.Net.Mime.MediaTypeNames;
-using static System.Runtime.InteropServices.JavaScript.JSType;
+using System.Diagnostics;
 
 namespace Minecraft_Server_GUI
 {
@@ -12,8 +8,8 @@ namespace Minecraft_Server_GUI
         public string VersionFoldert
         { get; set; }
 
-        System.Diagnostics.Process _process;
-        System.Diagnostics.ProcessStartInfo _startInfo;
+        Process _process;
+        ProcessStartInfo _startInfo;
 
         string[] _lines;
         List<int> _readedLines = new List<int>();
@@ -30,7 +26,7 @@ namespace Minecraft_Server_GUI
             openSVFAtStartupToolStripMenuItem.Checked = Convert.ToBoolean(ConfigurationManager.AppSettings["OpenSVFAtStartup"]);
         }
 
-        private void _process_OutputDataReceived(object sender, System.Diagnostics.DataReceivedEventArgs e)
+        private void _process_OutputDataReceived(object sender, DataReceivedEventArgs e)
         {
             OutputOnTB(e.Data);
         }
@@ -60,7 +56,7 @@ namespace Minecraft_Server_GUI
 
             if (jarFile != "")
             {
-                _startInfo = new System.Diagnostics.ProcessStartInfo
+                _startInfo = new ProcessStartInfo
                 {
                     FileName = "CMD.exe",
                     WorkingDirectory = VersionFoldert,
@@ -71,7 +67,7 @@ namespace Minecraft_Server_GUI
                     RedirectStandardInput = true
                 };
 
-                _process = new System.Diagnostics.Process();
+                _process = new Process();
                 _process.StartInfo = _startInfo;
 
                 _process.OutputDataReceived += _process_OutputDataReceived;
