@@ -26,7 +26,7 @@ namespace Minecraft_Server_GUI
                     SaveValue("WorkFolder", selVerForm.WorkFoldert);
 
                 var mainForm = new MainForm();
-                mainForm.VersionFoldert = selVerForm.VersionFoldert;
+                mainForm.VersionFolder = selVerForm.VersionFolder;
 
                 Application.Run(mainForm);
             }

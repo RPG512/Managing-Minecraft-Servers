@@ -1,18 +1,24 @@
+using System.Collections.Generic;
 using System.Configuration;
 using System.Diagnostics;
+using Timer = System.Windows.Forms.Timer;
 
 namespace Minecraft_Server_GUI
 {
     public partial class MainForm : Form
     {
-        public string VersionFoldert
+        public string? VersionFolder
         { get; set; }
 
-        Process _process;
-        ProcessStartInfo _startInfo;
+        string? _execFilePath;
+        //Перевести в коллекцию
+        readonly List<Process> _processes;
+        readonly ProcessStartInfo _startInfo;
 
-        string[] _lines;
-        List<int> _readedLines = new List<int>();
+		Timer _timer;
+
+        string[]? _lines;
+		readonly List<int> _readedLines;
 
         bool _addPairsControls = true;
         bool _eulaMsgBox = true;
@@ -23,12 +29,27 @@ namespace Minecraft_Server_GUI
         {
             InitializeComponent();
 
-            openSVFAtStartupToolStripMenuItem.Checked = Convert.ToBoolean(ConfigurationManager.AppSettings["OpenSVFAtStartup"]);
+            _processes = [];
+			_startInfo = new()
+			{
+				UseShellExecute = false,
+				CreateNoWindow = true,
+				RedirectStandardOutput = true,
+				RedirectStandardInput = true
+			};
+			_timer = new()
+			{
+				Interval = 5000,
+				Enabled = false
+			};
+			_readedLines = [];
+
+			openSVFAtStartupToolStripMenuItem.Checked = Convert.ToBoolean(ConfigurationManager.AppSettings["OpenSVFAtStartup"]);
         }
 
-        private void _process_OutputDataReceived(object sender, DataReceivedEventArgs e)
+        private void Process_OutputDataReceived(object sender, DataReceivedEventArgs e)
         {
-            OutputOnTB(e.Data);
+            OutputOnTB(e.Data!);
         }
 
         private void OutputOnTB(string data)
@@ -44,50 +65,107 @@ namespace Minecraft_Server_GUI
             }
         }
 
+        /// <summary>
+        /// Определение типа исполняемого файла и запуск.
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
         private void runButton_Click(object sender, EventArgs e)
         {
-            var files = Directory.GetFiles(VersionFoldert);
-            string jarFile = "";
-            foreach (var f in files)
+			const string ErrT = "Процесс не был запущен. Файл с расширением (*.jar) не найден.\nВы можете выбрать путь к файлу в меню вручную.";
+			const string ErrC = "Исполняемый файл не обнаружен.";
+			if (_execFilePath == null)
             {
-                if (f.EndsWith(".jar"))
-                    jarFile = f;
-            }
-
-            if (jarFile != "")
-            {
-                _startInfo = new ProcessStartInfo
+                var files = Directory.GetFiles(VersionFolder!);
+                string jarFile = "";
+                foreach (var f in files)
                 {
-                    FileName = "CMD.exe",
-                    WorkingDirectory = VersionFoldert,
-                    Arguments = $"/C java -Xmx{xmxMaskedTextBox.Text.Replace(" ", "")} -Xms{xmsMaskedTextBox.Text.Replace(" ", "")} -jar {jarFile} nogui",
-                    UseShellExecute = false,
-                    CreateNoWindow = true,
-                    RedirectStandardOutput = true,
-                    RedirectStandardInput = true
-                };
+                    if (f.EndsWith(".jar"))
+                        jarFile = f;
+                }
 
-                _process = new Process();
-                _process.StartInfo = _startInfo;
-
-                _process.OutputDataReceived += _process_OutputDataReceived;
-
-                _process.Start();
-                _process.BeginOutputReadLine();
+                if (jarFile != "")
+                    ChangeStartInfo("java.exe", VersionFolder!, jarFile);
+                else
+                {
+					MessageBox.Show(ErrT, ErrC);
+                    return;
+                }
             }
             else
-                MessageBox.Show("������� �� ��� �������. ���� � ����������� (*.jar) �� ������.", "����������� ���� �� ���������.");
+            {
+                string folder = Path.GetDirectoryName(_execFilePath)!;
+
+                if (_execFilePath.EndsWith(".jar"))
+                {
+                    serverStarupParamGroupBox.Enabled = true;
+
+                    ChangeStartInfo("java.exe", folder, _execFilePath);
+                }
+                else if (_execFilePath.EndsWith(".bat"))
+                {
+                    ChangeStartInfo(_execFilePath, folder);
+                }
+                else
+                {
+                    MessageBox.Show(ErrT, ErrC);
+                    return;
+                }
+            }
+
+            _processes.Add(new()
+            {
+                StartInfo = _startInfo
+            });
+            _processes[0].OutputDataReceived += Process_OutputDataReceived;
+
+            _processes[0].Start();
+            _processes[0].BeginOutputReadLine();
+
+            _timer.Start();
+			_timer.Tick += Timer_Tick;
+
+            //Probably
+            //Сделать сохранение в словаре ПутьКПапке - ПутьКФайлу
+            _execFilePath = null;
+        }
+
+		private void Timer_Tick(object? sender, EventArgs e)
+		{
+            try
+            {
+                using (Process p = Process.GetProcessesByName("java").FirstOrDefault(p => p.Id == _processes[0].Id || (p.StartTime >= _processes[0].StartTime && p.StartTime <= _processes[0].StartTime.AddMinutes(1))) ?? Process.GetProcessesByName("java").FirstOrDefault()!)
+                    memToolStripTextBox.Text = $"ОЗУ: {(p.WorkingSet64 / 1048576f):#.0}Мб";
+            }
+            catch
+            {
+                try
+                {
+                    _processes[0].StandardInput.WriteLine();
+                }
+                catch { _timer.Stop(); }
+            }
+		}
+
+		private void ChangeStartInfo(string fileName, string workingDirectory, string? arguments = null)
+        {
+            _startInfo.FileName = fileName;
+            _startInfo.WorkingDirectory = workingDirectory;
+            _startInfo.Arguments = arguments != null ? $"-Xmx{xmxMaskedTextBox.Text.Replace(" ", "")} -Xms{xmsMaskedTextBox.Text.Replace(" ", "")} -jar {arguments} nogui" : null;
         }
 
         private void stopButton_Click(object sender, EventArgs e)
         {
             try
             {
-                _process.StandardInput.WriteLine("stop");
+                _processes[0].StandardInput.WriteLine("stop");
+                _processes.Remove(_processes[0]);
+                if (_processes.Count == 0 )
+                    _timer.Stop();
             }
             catch
             {
-                MessageBox.Show("��������� ������� ����������. ������ �� ��������.", "������� �� ������.");
+                MessageBox.Show("Остановка сервера невозможна. Сервер не работает.", "Процесс не найден.");
             }
         }
 
@@ -100,11 +178,11 @@ namespace Minecraft_Server_GUI
             foreach (var con in serverPropertiesGroupBox.Controls)
             {
                 if (con is NumericUpDown)
-                    (con as NumericUpDown).ValueChanged += numericUpDown_ValueChanged;
+                    (con as NumericUpDown)!.ValueChanged += NumericUpDown_ValueChanged!;
                 if (con is ComboBox)
-                    (con as ComboBox).SelectedIndexChanged += comboBox_SelectedIndexChanged;
+                    (con as ComboBox)!.SelectedIndexChanged += ComboBox_SelectedIndexChanged!;
                 if (con is CheckBox)
-                    (con as CheckBox).CheckedChanged += checkBox_CheckedChanged;
+                    (con as CheckBox)!.CheckedChanged += CheckBox_CheckedChanged!;
             }
         }
 
@@ -114,12 +192,12 @@ namespace Minecraft_Server_GUI
             {
                 try
                 {
-                    _process.StandardInput.WriteLine(inputTextBox.Text);
+                    _processes[0].StandardInput.WriteLine(inputTextBox.Text);
                     outputTextBox.Text += inputTextBox.Text + Environment.NewLine;
                 }
                 catch
                 {
-                    MessageBox.Show("���� ������ ����������. ������ �� ��������.", "������� �� ������.");
+                    MessageBox.Show("Ввод команд невозможен. Сервер не работает.", "Процесс не найден.");
                 }
                 inputTextBox.Clear();
             }
@@ -129,8 +207,8 @@ namespace Minecraft_Server_GUI
         {
             try
             {
-                _process.StandardInput.WriteLine("stop");
-                _process.WaitForExit();
+                _processes[0].StandardInput.WriteLine("stop");
+                _processes[0].WaitForExit();
             }
             catch { }
         }
@@ -140,9 +218,9 @@ namespace Minecraft_Server_GUI
             var selVerForm = new SelectVersionForm();
             selVerForm.ShowDialog();
 
-            if (VersionFoldert != "" || VersionFoldert != null)
+            if (VersionFolder != "" && VersionFolder != null)
             {
-                VersionFoldert = selVerForm.VersionFoldert;
+                VersionFolder = selVerForm.VersionFolder;
 
                 ReadProperties();
             }
@@ -150,10 +228,43 @@ namespace Minecraft_Server_GUI
 
         private void openSVFAtStartupToolStripMenuItem_CheckedChanged(object sender, EventArgs e)
         {
-            Program.SaveValue("OpenSVFAtStartup", (sender as ToolStripMenuItem).Checked.ToString());
+            Program.SaveValue("OpenSVFAtStartup", openSVFAtStartupToolStripMenuItem.Checked.ToString());
         }
 
-        private void otherPropertiesButton_Click(object sender, EventArgs e)
+        private void execFileSelectToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            var ofd = new OpenFileDialog() { InitialDirectory = VersionFolder! };
+            if (ofd.ShowDialog() == DialogResult.OK)
+            {
+                _execFilePath = ofd.FileName;
+                if (_execFilePath.EndsWith(".bat"))
+                    serverStarupParamGroupBox.Enabled = false;
+                else
+                    serverStarupParamGroupBox.Enabled = true;
+            }
+        }
+
+        private void startRCONToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            RCON_on_Telegram.Program.Main(["-ingui"]);
+        }
+
+        private void settingsRCONToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            var settingsRCON = new SettingsRCON();
+            if(settingsRCON.ShowDialog() == DialogResult.OK)
+            {
+                //РАБОТАЕМ СДЕСЬ
+            }
+        }
+
+        /// <summary>
+        /// <para>Открывает и закрывает панель неучтённых настроек сервера.</para>
+        /// Если открывается впервые, создаёт пары controls "ключ - значение" со значениями строк файла параметров, не использованных для предопределённых пар в основных настройках.
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
+        private void OtherPropertiesButton_Click(object sender, EventArgs e)
         {
             if (serverPropertiesGroupBox.Size == serverPropertiesGroupBox.MinimumSize)
             {
@@ -161,7 +272,7 @@ namespace Minecraft_Server_GUI
                 {
                     int x = 6;
                     int y = 6;
-                    for (int i = 0; i < _lines.Length; i++)
+                    for (int i = 0; i < _lines!.Length; i++)
                     {
                         bool ok = true;
                         foreach (int j in _readedLines)
@@ -180,7 +291,7 @@ namespace Minecraft_Server_GUI
                     }
                     foreach (var con in otherPropertiesPanel.Controls)
                         if (con is TextBox)
-                            (con as TextBox).Leave += textBox_Leave;
+                            (con as TextBox)!.Leave += TextBox_Leave!;
                 }
                 _addPairsControls = false;
 
@@ -198,32 +309,61 @@ namespace Minecraft_Server_GUI
             }
         }
 
-        private void numericUpDown_ValueChanged(object sender, EventArgs e)
+        /// <summary>
+        /// Общий метод автоматического сохранения настроек сервера для <see cref="NumericUpDown"/>.
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
+        private void NumericUpDown_ValueChanged(object sender, EventArgs e)
         {
-            ChangeProperties($"{(sender as NumericUpDown).Tag}={(sender as NumericUpDown).Value}");
+            ChangeProperties($"{(sender as NumericUpDown)!.Tag}={(sender as NumericUpDown)!.Value}");
         }
 
-        private void comboBox_SelectedIndexChanged(object sender, EventArgs e)
+        /// <summary>
+        /// Общий метод автоматического сохранения настроек сервера для <see cref="ComboBox"/>.
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
+        private void ComboBox_SelectedIndexChanged(object sender, EventArgs e)
         {
-            if ((sender as ComboBox).Text == "������� ����� ���")
-                if (InputBox.Show("������� �������� ������ ����", "����� ���") == DialogResult.OK)
+            if ((sender as ComboBox)!.Text == "Создать новый мир")
+            {
+                InputBox inputBox = new();
+                if (inputBox.ShowDialog("Введите название нового мира", "Новый мир", "Новый мир") == DialogResult.OK)
                 {
-                    worldComboBox.Items.Insert(0, InputBox.Value);
+                    worldComboBox.Items.Insert(0, inputBox.Value);
                     worldComboBox.SelectedIndex = 0;
                 }
-            ChangeProperties($"{(sender as ComboBox).Tag}={((sender as ComboBox).Tag != "level-name" ? (sender as ComboBox).SelectedIndex : (sender as ComboBox).Text)}");
+            }
+            ChangeProperties($"{(sender as ComboBox)!.Tag}={(!(sender as ComboBox)!.Tag!.Equals("level-name") ? (sender as ComboBox)!.SelectedIndex : (sender as ComboBox)!.Text)}");
         }
 
-        private void checkBox_CheckedChanged(object sender, EventArgs e)
+        /// <summary>
+        /// Общий метод автоматического сохранения настроек сервера для <see cref="CheckBox"/>.
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
+        private void CheckBox_CheckedChanged(object sender, EventArgs e)
         {
-            ChangeProperties((sender as CheckBox).Tag == "online-mode" ? $"{(sender as CheckBox).Tag}={!(sender as CheckBox).Checked}" : $"{(sender as CheckBox).Tag}={(sender as CheckBox).Checked}");
+            ChangeProperties((sender as CheckBox)!.Tag!.Equals("online-mode") ? $"{(sender as CheckBox)!.Tag}={!(sender as CheckBox)!.Checked}" : $"{(sender as CheckBox)!.Tag}={(sender as CheckBox)!.Checked}");
         }
 
-        private void textBox_Leave(object sender, EventArgs e)
+        /// <summary>
+        /// Общий метод автоматического сохранения настроек сервера для <see cref="TextBox"/>.
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
+        private void TextBox_Leave(object sender, EventArgs e)
         {
-            ChangeProperties($"{(sender as TextBox).Tag}={(sender as TextBox).Text}");
+            ChangeProperties($"{(sender as TextBox)!.Tag}={(sender as TextBox)!.Text}");
         }
 
+        /// <summary>
+        /// <para>Автоматическая прокрутка многострочного <see cref="TextBox"/>.</para>
+        /// Если встречается предупреждение eula, предлагает его принять, изменив соответствующий текстовый файл.
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
         private void outputTextBox_TextChanged(object sender, EventArgs e)
         {
             outputTextBox.SelectionStart = outputTextBox.Text.Length;
@@ -236,25 +376,25 @@ namespace Minecraft_Server_GUI
                 (
                     MessageBox.Show
                     (
-                        "�������� ���������������� ����������: https://account.mojang.com/documents/minecraft_eula (�������).\n\n������� ���������������� ����������?",
-                        "�� �� ������� ���������������� ����������.",
+                        "Прочтите пользовательское соглашение: https://account.mojang.com/documents/minecraft_eula (Справка).\n\nПринять пользовательское соглашение?",
+                        "Вы не приняли пользовательское соглашение.",
                         MessageBoxButtons.YesNo,
                         MessageBoxIcon.Question,
                         MessageBoxDefaultButton.Button1,
                         0,
                         "https://account.mojang.com/documents/minecraft_eula",
-                        "���������������� ����������"
+                        "Пользовательское соглашение"
                     ) == DialogResult.Yes
                 )
                 {
-                    var lines = File.ReadAllLines(VersionFoldert + @"\eula.txt");
-                    for (int i = 0; i < _lines.Length; i++)
+                    var lines = File.ReadAllLines(VersionFolder + @"\eula.txt");
+                    for (int i = 0; i < _lines!.Length; i++)
                     {
                         lines[i].Replace("\r", "");
                         if (lines[i].StartsWith("eula="))
                         {
                             lines[i] = "eula=true";
-                            System.IO.File.WriteAllLines(VersionFoldert + @"\eula.txt", lines);
+                            System.IO.File.WriteAllLines(VersionFolder + @"\eula.txt", lines);
                             break;
                         }
                     }
@@ -270,17 +410,22 @@ namespace Minecraft_Server_GUI
             otherPropertiesPanel.Visible = false;
         }
 
+        /// <summary>
+        /// <para>Считывает настройки сервера из файла server.properties и заносит данные в необходимом формате в предопределённые Controls.</para>
+        /// <para>Указывает путь к каталогу версии в меню.</para>
+        /// Очищает поле вывода.
+        /// </summary>
         private void ReadProperties()
         {
-            versionToolStripTextBox.Text = VersionFoldert;
-            versionToolStripTextBox.Size = new Size(VersionFoldert.Length * 6, 23);
+            versionToolStripTextBox.Text = VersionFolder;
+            versionToolStripTextBox.Size = new Size(VersionFolder!.Length * 6, 23);
 
             outputTextBox.Clear();
 
             try
             {
                 worldComboBox.Items.Clear();
-                var folders = Directory.GetDirectories(VersionFoldert);
+                var folders = Directory.GetDirectories(VersionFolder);
                 foreach (var folder in folders)
                 {
                     var files = Directory.GetFiles(folder);
@@ -288,27 +433,27 @@ namespace Minecraft_Server_GUI
                         if (file.EndsWith("level.dat"))
                         {
                             var fold = file.Split('\\');
-                            worldComboBox.Items.Add(fold[fold.Length - 2]);
+                            worldComboBox.Items.Add(fold[^2]);
                             break;
                         }
                 }
-                worldComboBox.Items.Add("������� ����� ���");
+                worldComboBox.Items.Add("Создать новый мир");
 
-                _lines = File.ReadAllLines(VersionFoldert + @"\server.properties");
+                _lines = File.ReadAllLines(VersionFolder + @"\server.properties");
 
                 for (int i = 0; i < _lines.Length; i++)
                 {
                     foreach (var con in serverPropertiesGroupBox.Controls)
                     {
                         if (con is NumericUpDown)
-                            if (_lines[i].StartsWith((string)(con as NumericUpDown).Tag + '='))
+                            if (_lines[i].StartsWith((string)(con as NumericUpDown)!.Tag! + '='))
                             {
-                                (con as NumericUpDown).Value = Convert.ToInt32(_lines[i].Split('=')[1]);
+                                (con as NumericUpDown)!.Value = Convert.ToInt32(_lines[i].Split('=')[1]);
                                 _readedLines.Add(i);
                                 break;
                             }
                         if (con is ComboBox)
-                            if (_lines[i].StartsWith((string)(con as ComboBox).Tag + '='))
+                            if (_lines[i].StartsWith((string)(con as ComboBox)!.Tag! + '='))
                             {
                                 int value;
 
@@ -334,22 +479,22 @@ namespace Minecraft_Server_GUI
                                         value = Convert.ToInt32(_lines[i].Split('=')[1].ToLower());
                                         break;
                                 }
-                                (con as ComboBox).SelectedIndex = value;
+                                (con as ComboBox)!.SelectedIndex = value;
 
                                 _readedLines.Add(i);
                                 break;
                             }
                         if (con is CheckBox)
-                            if (_lines[i].StartsWith((string)(con as CheckBox).Tag + '='))
+                            if (_lines[i].StartsWith((string)(con as CheckBox)!.Tag! + '='))
                             {
-                                (con as CheckBox).Checked = (con as CheckBox).Tag != "online-mode" ? Convert.ToBoolean(_lines[i].Split('=')[1]) : !Convert.ToBoolean(_lines[i].Split('=')[1]);
+                                (con as CheckBox)!.Checked = !(con as CheckBox)!.Tag!.Equals("online-mode") ? Convert.ToBoolean(_lines[i].Split('=')[1]) : !Convert.ToBoolean(_lines[i].Split('=')[1]);
                                 _readedLines.Add(i);
                                 break;
                             }
                     }
-                    if (_lines[i].StartsWith((string)resourcePackTextBox.Tag + '='))
+                    if (_lines[i].StartsWith((string)resourcePackTextBox.Tag! + '='))
                         resourcePackTextBox.Text = _lines[i].Split('=')[1];
-                    if (_lines[i].StartsWith((string)worldComboBox.Tag + '='))
+                    if (_lines[i].StartsWith((string)worldComboBox.Tag! + '='))
                         worldComboBox.Text = _lines[i].Split('=')[1];
                 }
 
@@ -359,20 +504,24 @@ namespace Minecraft_Server_GUI
             }
             catch (FileNotFoundException)
             {
-                MessageBox.Show("�� ������ ���� \"server.properties\". �������� ��� ������ ������ ������� � ���� ��� �� ������.", "���� ������� �� ���������");
+                MessageBox.Show("Не найден файл \"server.properties\". Возможно это первый запуск сервера и файл ещё не создан.", "Файл свойств не обнаружен");
                 serverPropertiesGroupBox.Enabled = false;
             }
         }
+        /// <summary>
+        /// Находит строку в server.properties, начинающуюся на "Свойство=", и изменяет на <paramref name="line"></paramref>
+        /// </summary>
+        /// <param name="line">Пара значений "Свойство=Значение"</param>
         private void ChangeProperties(string line)
         {
             string key = line.Split('=')[0];
-            for (int i = 0; i < _lines.Length; i++)
+            for (int i = 0; i < _lines!.Length; i++)
             {
                 _lines[i].Replace("\r", "");
                 if (_lines[i].StartsWith(key + '='))
                 {
                     _lines[i] = line.StartsWith("level-name=") || line.StartsWith("motd=") || line.StartsWith("level-type=") ? line : line.ToLower();
-                    System.IO.File.WriteAllLines(VersionFoldert + @"\server.properties", _lines);
+                    System.IO.File.WriteAllLines(VersionFolder + @"\server.properties", _lines);
                     return;
                 }
             }

@@ -11,11 +11,11 @@ using System;
 
 namespace RCON_on_Telegram
 {
-    internal class Program
+    public class Program
     {
-        private static RCON _rcon;
+        private static RCON? _rcon;
 
-        private static TelegramBotClient _bot = new TelegramBotClient(ConfigurationManager.AppSettings["BotToken"]);
+        private static readonly TelegramBotClient _bot = new TelegramBotClient(ConfigurationManager.AppSettings["BotToken"]!);
 
         private const string _onButton = "Включить";
         private const string _offButton = "Выключить";
@@ -28,31 +28,28 @@ namespace RCON_on_Telegram
                   }
         );
 
-        static void Main(string[] args)
+        public static void Main(string[] args)
         {
-            string ip = string.Empty;
-            ushort port = 0;
-            string password = string.Empty;
             if (!(args.Length > 0))
             {
-                if (true/*args[0].Equals("-ingui")*/)
+                if (args[0].Equals("-ingui"))
                 {
-                    ip = "192.168.1.119";
-                    port = 25574;
-                    password = "11211";
+                    RCONSettings.ip = "192.168.1.119";
+                    RCONSettings.port = 25574;
+                    RCONSettings.password = "11211";
                 }
             }
             else
             {
                 Console.Write("IP: ");
-                ip = Console.ReadLine();
+                RCONSettings.ip = Console.ReadLine()!;
                 Console.Write("Port:");
-                port = Convert.ToUInt16(Console.ReadLine());
+                RCONSettings.port = Convert.ToUInt16(Console.ReadLine());
                 Console.Write("Password: ");
-                password = Console.ReadLine();
+                RCONSettings.password = Console.ReadLine()!;
             }
 
-            _rcon = new RCON(IPAddress.Parse(ip), port, password);
+            _rcon = new RCON(IPAddress.Parse(RCONSettings.ip), RCONSettings.port, RCONSettings.password);
 
             using var cts = new CancellationTokenSource();
 
@@ -66,7 +63,8 @@ namespace RCON_on_Telegram
 
             Console.ReadLine();
 
-            cts.Cancel();//Завершение программы
+            //Завершение программы
+            cts.Cancel();
 
             async Task HandleUpdate(ITelegramBotClient _, Update update, CancellationToken cancellationToken)
             {
@@ -100,14 +98,14 @@ namespace RCON_on_Telegram
 
                 try
                 {
-                    if (text.StartsWith("/"))
+                    if (text.StartsWith('/'))
                     {
                         await HandleCommand(chat.Id, text);
                     }
                     else
                     {
                         var command = text;
-                        var res = _rcon.SendCommandAsync(command);
+                        var res = _rcon!.SendCommandAsync(command);
                         await _bot.SendTextMessageAsync(chat.Id, res.Result);//сообщ
                     }
                 }
@@ -128,7 +126,7 @@ namespace RCON_on_Telegram
                         await _bot.SendTextMessageAsync(userId, "Здравствуйте.\nДля вызова меню - /menu");
                         break;
                     default:
-                        var res = _rcon.SendCommandAsync(command);
+                        var res = _rcon!.SendCommandAsync(command);
                         await _bot.SendTextMessageAsync(userId, res.Result);
                         break;
                 }
@@ -141,7 +139,7 @@ namespace RCON_on_Telegram
                 await _bot.SendTextMessageAsync
                     (
                         userId,
-                        "Включить/отключить отправку уведомлений о новых постах на DTF, раздел \"Популярное\"?",
+                        "Включить/отключить отправку уведомлений о новых постах на DTF, раздел \"Популярное\"?",//Осталось с прошлого проекта
                         parseMode: ParseMode.Html,
                         replyMarkup: _menuMarkup
                     );
@@ -196,5 +194,12 @@ namespace RCON_on_Telegram
                 Console.Write(res.Result + "\n\nCommand: ");
             }*/
         }
+    }
+
+    public class RCONSettings//говно времянка
+    {
+        internal static string ip = string.Empty;
+        internal static ushort port = 25575;
+        internal static string password = string.Empty;
     }
 }

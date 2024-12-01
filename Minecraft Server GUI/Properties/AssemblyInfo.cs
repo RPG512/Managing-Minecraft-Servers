@@ -1,26 +1,33 @@
-using System.Reflection;
+﻿using System.Reflection;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 
-[assembly: AssemblyVersion("0.1.5.13")]
-[assembly: AssemblyProduct("Managing Minecraft Servers")]
-[assembly: AssemblyCompany("512Studio")]
-[assembly: AssemblyTrademark("512Studio")]
-[assembly: AssemblyCopyright("Copyright © 512Studio 2024")]
+// Общие сведения об этой сборке предоставляются следующим набором 
+// набор атрибутов. Измените значения этих атрибутов, чтобы изменить сведения,
+// общие сведения об этой сборке.
 [assembly: AssemblyTitle("Minecraft Server GUI")]
+[assembly: AssemblyDescription("")]
+[assembly: AssemblyConfiguration("debug")]
+[assembly: AssemblyCompany("512Studio")]
+[assembly: AssemblyProduct("Managing Minecraft Servers")]
+[assembly: AssemblyCopyright("Copyright © 512Studio 2024")]
+[assembly: AssemblyTrademark("512Studio")]
+[assembly: AssemblyCulture("")]
 
-// В проектах SDK, таких как этот, некоторые атрибуты сборки, которые ранее определялись
-// в этом файле, теперь автоматически добавляются во время сборки и заполняются значениями,
-// заданными в свойствах проекта. Подробные сведения о том, какие атрибуты включены
-// и как настроить этот процесс, см. на странице: https://aka.ms/assembly-info-properties.
-
-
-// При установке значения false для параметра ComVisible типы в этой сборке становятся
-// невидимыми для компонентов COM. Если вам необходимо получить доступ к типу в этой
-// сборке из модели COM, установите значение true для атрибута ComVisible этого типа.
-
+// Установка параметра ComVisible в значение false делает типы в этой сборке невидимыми 
+// для компонентов модели COM.  Если тип в этой сборке необходимо сделать доступным 
+// из модели COM, установите атрибут ComVisible для этого типа в значение true.
 [assembly: ComVisible(false)]
 
-// Следующий GUID служит для идентификации библиотеки типов typelib, если этот проект
-// будет видимым для COM.
+// Следующий GUID представляет идентификатор typelib, если этот проект доступен из модели COM
+[assembly: Guid("d9d15ad7-a379-46e6-985f-84db22199d6f")]
 
-[assembly: Guid("d992c6bf-c5a5-4245-b287-7f4754c66b1d")]
+// Сведения о версии для сборки состоят из следующих четырех значений:
+//
+//      Основной номер версии
+//      Дополнительный номер версии 
+//      Номер сборки
+//      Номер редакции
+//
+[assembly: AssemblyVersion("0.1.8.138")]
+[assembly: AssemblyFileVersion("0.1.7.18")]

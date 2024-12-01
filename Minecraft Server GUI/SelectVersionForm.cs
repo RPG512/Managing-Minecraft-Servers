@@ -4,9 +4,9 @@ namespace Minecraft_Server_GUI
 {
     public partial class SelectVersionForm : Form
     {
-        public string WorkFoldert
+        public string? WorkFoldert
         { get; set; }
-        public string VersionFoldert
+        public string? VersionFolder
         { get; set; }
 
         public SelectVersionForm()
@@ -45,13 +45,13 @@ namespace Minecraft_Server_GUI
                 }
             }
             else
-                VersionFoldert = folderTextBox.Text;
+                VersionFolder = folderTextBox.Text;
         }
 
         private void versionListBox_SelectedIndexChanged(object sender, EventArgs e)
         {
             Program.SaveValue("VersionIndex", versionListBox.SelectedIndex.ToString());
-            VersionFoldert = versionListBox.Text;
+            VersionFolder = versionListBox.Text;
         }
 
         private void checkBox1_CheckedChanged(object sender, EventArgs e)
@@ -63,7 +63,7 @@ namespace Minecraft_Server_GUI
 
         private void okButton_Click(object sender, EventArgs e)
         {
-            this.Close();
+            Close();
         }
     }
 }
