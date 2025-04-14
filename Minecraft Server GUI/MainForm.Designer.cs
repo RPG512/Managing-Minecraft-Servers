@@ -43,6 +43,7 @@
 			settingsRCONToolStripMenuItem = new ToolStripMenuItem();
 			versionToolStripTextBox = new ToolStripTextBox();
 			memToolStripTextBox = new ToolStripTextBox();
+			coreToolStripTextBox = new ToolStripTextBox();
 			serverPropertiesGroupBox = new GroupBox();
 			otherPropertiesPanel = new Panel();
 			otherPropertiesButton = new Button();
@@ -74,6 +75,7 @@
 			xmsMaskedTextBox = new MaskedTextBox();
 			label2 = new Label();
 			stopButton = new Button();
+			startProgressBar = new ProgressBar();
 			menuStrip1.SuspendLayout();
 			serverPropertiesGroupBox.SuspendLayout();
 			worldGroupBox.SuspendLayout();
@@ -131,7 +133,7 @@
 			// menuStrip1
 			// 
 			menuStrip1.BackColor = SystemColors.Control;
-			menuStrip1.Items.AddRange(new ToolStripItem[] { fileToolStripMenuItem, rconStripMenuItem, versionToolStripTextBox, memToolStripTextBox });
+			menuStrip1.Items.AddRange(new ToolStripItem[] { fileToolStripMenuItem, rconStripMenuItem, versionToolStripTextBox, memToolStripTextBox, coreToolStripTextBox });
 			menuStrip1.Location = new Point(0, 0);
 			menuStrip1.Name = "menuStrip1";
 			menuStrip1.Size = new Size(885, 27);
@@ -202,7 +204,13 @@
 			memToolStripTextBox.BackColor = SystemColors.Control;
 			memToolStripTextBox.Name = "memToolStripTextBox";
 			memToolStripTextBox.ReadOnly = true;
-			memToolStripTextBox.Size = new Size(200, 23);
+			memToolStripTextBox.Size = new Size(100, 23);
+			// 
+			// coreToolStripTextBox
+			// 
+			coreToolStripTextBox.Name = "coreToolStripTextBox";
+			coreToolStripTextBox.ReadOnly = true;
+			coreToolStripTextBox.Size = new Size(200, 23);
 			// 
 			// serverPropertiesGroupBox
 			// 
@@ -545,11 +553,21 @@
 			stopButton.UseVisualStyleBackColor = true;
 			stopButton.Click += stopButton_Click;
 			// 
+			// startProgressBar
+			// 
+			startProgressBar.Anchor = AnchorStyles.Bottom | AnchorStyles.Left;
+			startProgressBar.Location = new Point(184, 453);
+			startProgressBar.Name = "startProgressBar";
+			startProgressBar.Size = new Size(191, 23);
+			startProgressBar.TabIndex = 7;
+			startProgressBar.Visible = false;
+			// 
 			// MainForm
 			// 
 			AutoScaleDimensions = new SizeF(7F, 15F);
 			AutoScaleMode = AutoScaleMode.Font;
 			ClientSize = new Size(885, 488);
+			Controls.Add(startProgressBar);
 			Controls.Add(stopButton);
 			Controls.Add(serverStarupParamGroupBox);
 			Controls.Add(serverPropertiesGroupBox);
@@ -626,5 +644,7 @@
         private ToolStripMenuItem startRCONToolStripMenuItem;
         private ToolStripMenuItem settingsRCONToolStripMenuItem;
 		private ToolStripTextBox memToolStripTextBox;
+		private ProgressBar startProgressBar;
+		private ToolStripTextBox coreToolStripTextBox;
 	}
 }
